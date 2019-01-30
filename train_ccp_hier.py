@@ -54,7 +54,8 @@ def train_agent(n_episodes: int=1000, render: bool=True, n_lolvl_agts: int=4):
     time_begin = time.time()
 
     while ep < n_episodes:
-        steps, hi_steps, score, done = 0, 0, 0, False
+        dones = [False] * n_lolvl_agts
+        steps, hi_steps, score,  = 0, 0, 0
         loss_sum = np.array([0.,0.])
         states = [add_batch_to_state(env.reset()) for env in envs]
         agent.reset_clock()
@@ -63,7 +64,7 @@ def train_agent(n_episodes: int=1000, render: bool=True, n_lolvl_agts: int=4):
 
         goal_states = [np.squeeze(state) for state in states]
 
-        while not done and steps < max_steps_per_ep:
+        while not np.array(dones).all() and steps < max_steps_per_ep:
             if render:
                 for env, goal_state in zip(envs, goal_states):
                     env.render(goal_state=goal_state)
@@ -73,18 +74,18 @@ def train_agent(n_episodes: int=1000, render: bool=True, n_lolvl_agts: int=4):
             
             goal_states = [np.squeeze(goal) for goal in agent.goals]
 
-            
-            next_state, reward, done, _ = env.step(np.squeeze(action, axis=0))
-            next_state = add_batch_to_state(next_state)
+            next_states, rewards, new_dones = [], [], []
+            for action, env, done in zip(actions, envs, dones):
+                if not done:
+                    next_state, reward, new_done, _ = env.step(np.squeeze(action, axis=0))
+                    next_states.append(add_batch_to_state(next_state))
+                    rewards.append(reward)
+                    new_dones.append(new_done)
 
-            # reward shaping ;-)
-            # reward_shaping = np.abs(next_state[2]-np.pi)/np.pi/10
-            # new_reward = reward_shaping if reward == 1 else reward+reward_shaping
+            dones = new_dones
+            rewards = [reward -1 if steps >= max_steps_per_ep else reward for reward in rewards]
 
-            if steps >= max_steps_per_ep:
-                reward -= 1
-
-            lo_loss, hi_loss = agent.train(state, action, reward, next_state, done)
+            lo_loss, hi_loss = agent.train(states=states, actions=actions, rewards=rewards, next_states=next_states, dones=done)
             
             if hi_loss is not None:
                 hi_steps += 1

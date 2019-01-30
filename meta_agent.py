@@ -79,7 +79,7 @@ class MetaAgent(BaseAgent):
     def reset_clock(self):
         self.t = 0
 
-    def intrinsic_reward(self, state, goal, action, next_state):
+    def intrinsic_reward(self, states, goals, actions, next_states):
         """
         a reward function for the LoAgent as defined in HIRO paper, eqn (3)
 
@@ -87,15 +87,15 @@ class MetaAgent(BaseAgent):
         note: action does not figure in the formula - this is apparently deliberate
         todo - make this a customisable function?
         """
-
-        # Dealing with angle variables TODO: is it possible to know wich variables are angles from the state space?
         
-        
-        assert goal.shape[0] == 1
-        difference = abs(goal - next_state)
-        difference[0,2] = difference[0,2] if difference[0,2] <= np.pi else 2 * np.pi - difference[0,2]
-        difference[0,2] *= 2.0
-        return -1 * np.linalg.norm(difference / (2.0 * self.hi_action_space.high))
+        intr_rewards = []
+        for state, goal, action, next_state in zip(states, goals, actions, next_states):
+            assert goal.shape[0] == 1
+            difference = abs(goal - next_state)
+            difference[0,2] = difference[0,2] if difference[0,2] <= np.pi else 2 * np.pi - difference[0,2] # Dealing with angle variables TODO: is it possible to know wich variables are angles from the state space?
+            difference[0,2] *= 2.0
+            intr_rewards.append(-1 * np.linalg.norm(difference / (2.0 * self.hi_action_space.high)))
+        return intr_rewards
 
     def act(self, states, explore=False):
 
@@ -104,7 +104,7 @@ class MetaAgent(BaseAgent):
             self.t = 0
 
             # HL agent picks a new state from space and sets it as LL's goal
-            self.hi_actions = [hi_ag.act(state, explore, rough_explore=False) for hi_ag, state in zip(self.hi_agent, states)]
+            self.hi_actions = [self.hi_agent.act(state, explore, rough_explore=False) for state in states]
             self.goals = [np.multiply(hi_action, self.hi_action_scaling) for hi_action in self.hi_actions] # element wise
             # save for later training
             self.hi_states = states
@@ -123,13 +123,13 @@ class MetaAgent(BaseAgent):
 
         return lo_actions
 
-    def train(self, state, action, reward: float, next_state, done: bool):
+    def train(self, states, actions, rewards: float, next_states, dones: bool):
 
         # accumulate rewards for HL agent
-        self.hi_rewards += reward
+        self.hi_rewards += [hi_reward + reward for hi_reward, reward in zip(self.hi_rewards, rewards)]
 
         # provide LL agent with intrinsic reward
-        lo_reward = self.intrinsic_reward(state, self.goal, action, next_state)
+        lo_rewards = self.intrinsic_reward(states, self.goals, actions, next_states)
 
         # The lower-level policy will store the experience
         # (st, gt, at, rt, st+1, h(st, gt, st+1))
@@ -137,17 +137,22 @@ class MetaAgent(BaseAgent):
         # note: if the hi-agent picks a new goal in the next step, then this line will not be quite right.
         # but maybe it's actually better this way...
 
-        lo_loss = self.lo_agent.train(
-            np.concatenate([state, self.goal], axis=1),
-            action,
-            lo_reward,
-            np.concatenate([next_state, self.goal], axis=1),
-            done,
-            relabel=False)
+        lo_losses = []
+        for lo_ag, state, goal, action, lo_reward, next_state, done in \
+            zip (self.lo_agents, states, self.goals, actions, lo_rewards, next_states, dones):
+            if not done:
+                lo_losses.append(lo_ag.train(
+                    np.concatenate([state, goal], axis=1),
+                    action,
+                    lo_reward,
+                    np.concatenate([next_state, goal], axis=1),
+                    done,
+                    relabel=False))
 
         # is it time to train the HL agent?
-        hi_loss = None
+        hi_losses = None
         if self.t % self.c == 0:
+            for hi_state, hi_action, hi_reward, next_state  # TODO stopped here
             hi_loss = self.hi_agent.train(
                 self.hi_state,
                 self.hi_action, #(-1, 1)
