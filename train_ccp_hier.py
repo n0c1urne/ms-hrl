@@ -40,20 +40,15 @@ def test_agent(n_episodes: int=10, render: bool=True):
 def add_batch_to_state(state):
     return np.expand_dims(state, axis=0)
 
-def train_agent(n_episodes: int=1000, render: bool=True):
-    env = ContinuousCartPoleEnv() 
-    # todo: not compatible with 'CartPole-v1' 
+def train_agent(n_episodes: int=1000, render: bool=True, n_lolvl_agts: int=4):
 
-    # create new naive agent
-    # hi_agent = DDPGAgent.new_trainable_agent(
-    #     state_space=env.observation_space, 
-    #     action_space = env.action_space)
+    envs = [ContinuousCartPoleEnv()] * n_lolvl_agts
 
-    # lo_agent = DDPGAgent.new_trainable_agent(
-    #     state_space=env.observation_space, 
-    #     action_space = env.action_space)
-
-    agent = MetaAgent(env.observation_space, env.action_space, hi_agent=DDPGAgent, lo_agent=DDPGAgent)
+    agent = MetaAgent(
+        state_space= env.observation_space,
+        action_space=env.action_space, 
+        n_lolvl_agts=n_lolvl_agts,
+        hi_agent=DDPGAgent, lo_agent=DDPGAgent)
 
     total_steps, ep = 0, 0
     time_begin = time.time()
@@ -61,23 +56,24 @@ def train_agent(n_episodes: int=1000, render: bool=True):
     while ep < n_episodes:
         steps, hi_steps, score, done = 0, 0, 0, False
         loss_sum = np.array([0.,0.])
-        state = add_batch_to_state(env.reset())
+        states = [add_batch_to_state(env.reset()) for env in envs]
         agent.reset_clock()
 
         ep += 1
 
-        goal_state = np.squeeze(state)
+        goal_states = [np.squeeze(state) for state in states]
 
         while not done and steps < max_steps_per_ep:
             if render:
-                env.render(goal_state=goal_state)
-                pass
+                for env, goal_state in zip(envs, goal_states):
+                    env.render(goal_state=goal_state)
 
             steps += 1
-            action = agent.act(state, explore=True)
+            actions = agent.act(states, explore=True)
             
-            goal_state = np.squeeze(agent.goal)
+            goal_states = [np.squeeze(goal) for goal in agent.goals]
 
+            
             next_state, reward, done, _ = env.step(np.squeeze(action, axis=0))
             next_state = add_batch_to_state(next_state)
 
@@ -158,4 +154,4 @@ if __name__ == "__main__":
     train_agent(n_episodes=5, render=True)
     test_agent()
 
-#test
+

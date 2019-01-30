@@ -13,8 +13,9 @@ class MetaAgent(BaseAgent):
     def __init__(self,
                  state_space,
                  action_space,
-                 hi_agent=HiAgent,
-                 lo_agent=BaseAgent,
+                 n_lolvl_agts,
+                 hi_agent_cls=HiAgent,
+                 lo_agent_cls=BaseAgent,
                  models_dir=None,
                  c=100):
         # note, this will not work if initialised with
@@ -24,6 +25,8 @@ class MetaAgent(BaseAgent):
         # self.state_space = state_space
         # self.action_space = action_space
         super().__init__(state_space, action_space)
+
+        self.n_lolvl_agts = n_lolvl_agts
 
         self.c = c  # number of time steps between high level actions
         self.t = 0  # step counter (resets after every c steps)
@@ -35,8 +38,8 @@ class MetaAgent(BaseAgent):
         self.goal = None # this will store the HL agent's actions
 
         # these will record sequences necessary for off-policy relabelling later
-        self.lo_action_seq = np.empty((c, *action_space.shape))
-        self.lo_state_seq = np.empty((c, *state_space.shape))
+        self.lo_action_seq = [np.empty((c, *action_space.shape))] * self.n_lolvl_agts
+        self.lo_state_seq = [np.empty((c, *state_space.shape))] * self.n_lolvl_agts
 
         self.lo_state_space = deepcopy(state_space)
         self.lo_state_space.shape = (2 * self.lo_state_space.shape[0],)
@@ -46,22 +49,29 @@ class MetaAgent(BaseAgent):
         self.hi_action_space = deepcopy(state_space)
         self.hi_action_space.high = np.clip(self.hi_action_space.high, a_min=-10, a_max=10)
         self.hi_action_space.low = np.clip(self.hi_action_space.low,a_min=-10, a_max=10) #TODO obviously - maybe pass this as a parameter to MetaAgent
+        self.hi_action_scaling = (self.hi_action_space.high - self.hi_action_space.low) / 2
+
 
         if models_dir is None:
             # high level agent's actions will be states, i.e. goals for the LL agent
-            self.hi_agent = hi_agent.new_trainable_agent(
+            self.hi_agent = hi_agent_cls.new_trainable_agent(
                 state_space=state_space, action_space=self.hi_action_space, use_long_buffer=True,
                 epslon_greedy=0.6, exploration_decay = 0.9999)
 
             # low level agent's states will be (state, goal) concatenated
-            self.lo_agent = lo_agent.new_trainable_agent(
-                state_space=self.lo_state_space, action_space=action_space, epslon_greedy=0.7,
-                exploration_decay = 0.99999)
+            self.lo_agents = []
+            for lla in range(self.n_lolvl_agts):
+                self.lo_agents.append(
+                    lo_agent_cls.new_trainable_agent(
+                        state_space=self.lo_state_space, 
+                        action_space=action_space, 
+                        epslon_greedy=0.7,
+                        exploration_decay = 0.99999))
         else:
-            self.hi_agent = hi_agent.load_pretrained_agent(filepath=models_dir + '/hi_agent',
+            self.hi_agent = hi_agent_cls.load_pretrained_agent(filepath=models_dir + '/hi_agent',
                 state_space=state_space, action_space=self.hi_action_space)
 
-            self.lo_agent = lo_agent.load_pretrained_agent(filepath=models_dir + '/lo_agent',
+            self.lo_agent = lo_agent_cls.load_pretrained_agent(filepath=models_dir + '/lo_agent',
                 state_space=self.lo_state_space, action_space=action_space)
 
         # we won't need networks etc here
@@ -87,31 +97,31 @@ class MetaAgent(BaseAgent):
         difference[0,2] *= 2.0
         return -1 * np.linalg.norm(difference / (2.0 * self.hi_action_space.high))
 
-    def act(self, state, explore=False):
+    def act(self, states, explore=False):
 
         # is it time for a high-level action?
         if self.t % self.c == 0:
             self.t = 0
 
             # HL agent picks a new state from space and sets it as LL's goal
-            self.hi_action = self.hi_agent.act(state, explore, rough_explore=False) #this will be in (-1, 1)
-            hi_action_scaling = (self.hi_action_space.high - self.hi_action_space.low) / 2
-            self.goal = np.multiply(self.hi_action, hi_action_scaling) # element wise
+            self.hi_actions = [hi_ag.act(state, explore, rough_explore=False) for hi_ag, state in zip(self.hi_agent, states)]
+            self.goals = [np.multiply(hi_action, self.hi_action_scaling) for hi_action in self.hi_actions] # element wise
             # save for later training
-            self.hi_state = state
+            self.hi_states = states
 
             # since our goal is a state rather than an increment, a goal transition function h() should not be needed, right?
 
         # action in environment comes from low level agent
-        goal_broadcast = np.broadcast_to(self.goal, state.shape) #add a batch dimension just in case it's not there
-        lo_action = self.lo_agent.act(np.concatenate([state, goal_broadcast], axis=1), explore, rough_explore=True)
+        goals_bc = [np.broadcast_to(goal, state.shape) for goal, state in zip(self.goals, states)] #add a batch dimension just in case it's not there
         
-        self.lo_state_seq[self.t] = state
-        self.lo_action_seq[self.t] = lo_action
+        lo_actions = [lo_ag.act(np.concatenate([state, goal_bc], axis=1), explore, rough_explore=True) for lo_ag, state, goal_bc in zip(self.lo_agents, states, goals_bc)]
+
+        self.lo_state_seq[self.t] = states
+        self.lo_action_seq[self.t] = lo_actions
 
         self.t += 1
 
-        return lo_action
+        return lo_actions
 
     def train(self, state, action, reward: float, next_state, done: bool):
 
