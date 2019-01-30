@@ -3,12 +3,10 @@ from datetime import timedelta
 import numpy as np
 from continuous_cartpole import ContinuousCartPoleEnv
 from ddpg_agent.ddpg_agent import DDPGAgent
-from ddpg_agent.dummy_agent import DummyAgent
-
 from meta_agent import MetaAgent
 
 def test_agent(n_episodes: int=10, render: bool=True):
-    env = ContinuousCartPoleEnv() 
+    env = ContinuousCartPoleEnv()
     # load agent
     agent = MetaAgent(
         models_dir=saved_models_dir,
@@ -39,8 +37,8 @@ def test_agent(n_episodes: int=10, render: bool=True):
     
 
 def train_agent(n_episodes: int=1000, render: bool=True):
-    env = ContinuousCartPoleEnv() 
-
+    #env = LunarLanderContinuous()
+    env = ContinuousCartPoleEnv()
     agent = MetaAgent(
         state_space=env.observation_space,
         action_space=env.action_space, 

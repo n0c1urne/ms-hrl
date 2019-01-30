@@ -38,7 +38,7 @@ class DDPGAgent(HiAgent):
     def new_trainable_agent(cls,
         learning_rate_actor=0.0001,
         learning_rate_critic=0.0001,
-        batch_size=32,
+        batch_size=64,
         use_long_buffer=False,
         **kwargs) -> 'DDPGAgent':
 
@@ -47,8 +47,8 @@ class DDPGAgent(HiAgent):
         n_actions = kwargs['action_space'].shape[0]
 
         # Weights initialization
-        n_units_1 = 100
-        n_units_2 = 50
+        n_units_1 = 256
+        n_units_2 = 256
         kernel_initializer = RandomNormal(mean=0.0, stddev=0.000001, seed=None) # TODO: fix seed to test some hyperparameters that are non-network related
 
         # Create actor_behaviour network
@@ -107,6 +107,7 @@ class DDPGAgent(HiAgent):
     def act(self, state, explore=False, rough_explore=True):
         # action = self.actor_behaviour.predict(self.reshape_input(state))[0]
         assert not np.isnan(state).any()
+
         action = self.actor_behaviour.predict(state) #tanh'd (-1, 1)
         
         if explore and np.random.rand() < self.epslon_greedy:
