@@ -16,7 +16,7 @@ class MetaAgent(BaseAgent):
                  hi_agent_cls=HiAgent,
                  lo_agent_cls=BaseAgent,
                  models_dir=None,
-                 c=100):
+                 c=60):
         # note, this will not work if initialised with
         # default parameters!
         # high- and lo_agent need to be explicitly set
@@ -45,6 +45,9 @@ class MetaAgent(BaseAgent):
             high=np.concatenate([state_space.high, state_space.high]),
             dtype=state_space.dtype)
 
+        #
+
+
         self.hi_action_space = deepcopy(state_space)
 
         # figure out if any of the states are angles in (-pi, pi)
@@ -71,7 +74,7 @@ class MetaAgent(BaseAgent):
                 action_space=self.hi_action_space, 
                 use_long_buffer=True,
                 epslon_greedy=0.6, 
-                exploration_decay = 0.9999)
+                exploration_decay = 0.999)
 
             # low level agent's states will be (state, goal) concatenated
             self.lo_agent = lo_agent_cls.new_trainable_agent(
@@ -166,7 +169,7 @@ class MetaAgent(BaseAgent):
                 reward=self.hi_rewards,
                 next_state=next_state,
                 done=done,
-                relabel=True,
+                relabel=False,
                 lo_state_seq=self.lo_state_seq,
                 lo_action_seq=self.lo_action_seq,
                 lo_current_policy=self.lo_agent.act)
@@ -175,7 +178,6 @@ class MetaAgent(BaseAgent):
             self.hi_rewards = 0
 
         return lo_loss, hi_loss, lo_reward
-
 
     def save_model(self, filepath:str):
         self.hi_agent.save_model(filepath + '/hi_agent')

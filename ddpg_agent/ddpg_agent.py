@@ -109,14 +109,20 @@ class DDPGAgent(HiAgent):
         assert not np.isnan(state).any()
 
         action = self.actor_behaviour.predict(state) #tanh'd (-1, 1)
-        
-        if explore and np.random.rand() < self.epslon_greedy:
-            if rough_explore:
-                action = np.ones_like(action)
-                action[np.random.rand(*action.shape) > 0.5] = -1
+
+        if explore:
+            if self.replay_buffer.use_long:
+                if np.random.rand() > self.epslon_greedy:
+                    additive_noise = np.random.randn(*action.shape) * 0.2
+                    action += additive_noise
+                    self.epslon_greedy *= self.explr_decay if self.epslon_greedy > 0.05 else 0.05
+                else:
+                    action = np.random.uniform(size=action.shape)
             else:
-                action = (np.random.rand(*(action.shape)) * 2) - 1.
-            self.epslon_greedy = self.epslon_greedy * self.explr_decay if self.epslon_greedy > 0.05 else 0.05
+                if np.random.rand() < self.epslon_greedy:
+                    action = np.ones_like(action)
+                    action[np.random.rand(*action.shape) > 0.5] = -1
+                    self.epslon_greedy = self.epslon_greedy * self.explr_decay if self.epslon_greedy > 0.05 else 0.05
 
         action = np.clip(action, a_min=-1, a_max=1)
 

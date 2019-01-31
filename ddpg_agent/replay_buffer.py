@@ -66,7 +66,7 @@ class ReplayBuffer():
             lss = np.array(self.lo_state_seqs)[pick]
             las = np.array(self.lo_action_seqs)[pick]
             for i in range(b_size):
-                rw[i] += 0.2 * self.reward(ac[i])
+                rw[i] += self.reward(ac[i]) 
             return ReplayBatchLong(states_before=sb, actions=ac, states_after=sa, rewards=rw, done_flags=df, lo_state_seqs=lss, lo_action_seqs=las)
 
         # Batch is stored in the namedtupple 'ReplayBatch'
