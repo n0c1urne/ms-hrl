@@ -260,7 +260,7 @@ if __name__ == "__main__":
 
     print(args)
     #override here for ease of testing
-    # COMPLEXENV = True
+    # COMPLEXENV = Trues
     HIERARCHY = True
     RENDER = True
 

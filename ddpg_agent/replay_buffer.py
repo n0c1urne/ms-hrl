@@ -87,24 +87,6 @@ class ReplayBuffer():
         df = np.array(df)
         
         if self.use_long:
-<<<<<<< HEAD
-            lss = np.array(self.lo_state_seqs)[pick]
-            las = np.array(self.lo_action_seqs)[pick]
-            for i in range(b_size):
-                rw[i] += self.reward(ac[i]) 
-            return ReplayBatchLong(states_before=sb, actions=ac, states_after=sa, rewards=rw, done_flags=df, lo_state_seqs=lss, lo_action_seqs=las)
-
-        # Batch is stored in the namedtupple 'ReplayBatch'
-        return ReplayBatch(states_before=sb, actions=ac, states_after=sa, rewards=rw, done_flags=df)
-
-    def reward(self, state):
-        x_threshold = 2.4
-        if state[0] < -x_threshold or state[0] > x_threshold:
-            return -1
-        def angle_normalize(x):
-            return (((x + np.pi) % (2 * np.pi)) - np.pi)
-        return 1 if -0.1 <= angle_normalize(state[2]) <= 0.1 else 0
-=======
             lss = []
             las = []
         
@@ -114,7 +96,6 @@ class ReplayBuffer():
 
             lss = np.array(lss)
             las = np.array(las)
->>>>>>> master
 
             return ReplayBatchLong(states_before=sb, actions=ac, states_after=sa, rewards=rw, done_flags=df, lo_state_seqs=lss, lo_action_seqs=las)
         

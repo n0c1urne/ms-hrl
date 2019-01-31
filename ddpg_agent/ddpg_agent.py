@@ -54,13 +54,7 @@ class DDPGAgent(HiAgent):
         n_actions = kwargs['action_space'].shape[0]
 
         # Weights initialization
-<<<<<<< HEAD
-        n_units_1 = 256
-        n_units_2 = 256
-        kernel_initializer = RandomNormal(mean=0.0, stddev=0.000001, seed=None) # TODO: fix seed to test some hyperparameters that are non-network related
-=======
         kernel_initializer = RandomNormal(mean=0.0, stddev=weights_stdev, seed=None) # TODO: maybe fix seed and test some hyperparameters that are non-network related
->>>>>>> master
 
         # Create actor_behaviour network
         adam_act = tf.keras.optimizers.Adam(learning_rate_actor)
@@ -120,33 +114,14 @@ class DDPGAgent(HiAgent):
     def act(self, state, explore=False):
         # action = self.actor_behaviour.predict(self.reshape_input(state))[0]
         assert not np.isnan(state).any()
-
         action = self.actor_behaviour.predict(state) #tanh'd (-1, 1)
-<<<<<<< HEAD
-
-        if explore:
-            if self.replay_buffer.use_long:
-                if np.random.rand() > self.epslon_greedy:
-                    additive_noise = np.random.randn(*action.shape) * 0.2
-                    action += additive_noise
-                    self.epslon_greedy *= self.explr_decay if self.epslon_greedy > 0.05 else 0.05
-                else:
-                    action = np.random.uniform(size=action.shape)
-            else:
-                if np.random.rand() < self.epslon_greedy:
-                    action = np.ones_like(action)
-                    action[np.random.rand(*action.shape) > 0.5] = -1
-                    self.epslon_greedy = self.epslon_greedy * self.explr_decay if self.epslon_greedy > 0.05 else 0.05
-
-=======
         
         if explore:
             noise = self.ou_noise.noise()
             action = (1-self.epslon_greedy)*action + noise * self.epslon_greedy
             if self.epslon_greedy > 0.1:
                 self.epslon_greedy = self.epslon_greedy * self.explr_decay
-        
->>>>>>> master
+
         action = np.clip(action, a_min=-1, a_max=1)
 
         assert not np.isnan(action).any()

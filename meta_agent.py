@@ -16,12 +16,8 @@ class MetaAgent(BaseAgent):
                  hi_agent_cls=HiAgent,
                  lo_agent_cls=BaseAgent,
                  models_dir=None,
-<<<<<<< HEAD
-                 c=60):
-=======
                  c=40,
                  hi_action_space=None):
->>>>>>> master
         # note, this will not work if initialised with
         # default parameters!
         # high- and lo_agent need to be explicitly set
@@ -48,18 +44,11 @@ class MetaAgent(BaseAgent):
             high=np.concatenate([state_space.high, state_space.high]),
             dtype=state_space.dtype)
 
-<<<<<<< HEAD
-        #
-
-
-        self.hi_action_space = deepcopy(state_space)
-=======
         if hi_action_space is None:
             self.hi_action_space = deepcopy(state_space)
         else:
             #clipping!
-            self.hi_action_space = hi_action_space            
->>>>>>> master
+            self.hi_action_space = hi_action_space
 
         # figure out if any of the states are angles in (-pi, pi)
         # so that we can calculate distances between them properly in the intrinsic reward function
@@ -74,17 +63,12 @@ class MetaAgent(BaseAgent):
                 state_space=state_space,
                 action_space=self.hi_action_space,
                 use_long_buffer=True,
-<<<<<<< HEAD
-                epslon_greedy=0.6, 
-                exploration_decay = 0.999)
-=======
                 epslon_greedy=1.0,
                 exploration_decay = 0.9999,
                 discount_factor=0.99,
                 n_units=[256, 128, 64],
                 weights_stdev=0.01,
                 )
->>>>>>> master
 
             # low level agent's states will be (state, goal) concatenated
             self.lo_agent = lo_agent_cls.new_trainable_agent(
@@ -175,9 +159,6 @@ class MetaAgent(BaseAgent):
         self.hi_rewards += reward
 
         # provide LL agent with intrinsic reward
-<<<<<<< HEAD
-        lo_reward = self.intrinsic_reward(state=state, goal=self.goal, action=action, next_state=next_state) + reward >= 1
-=======
         self.lo_reward = self.intrinsic_reward(state=state, goal=self.goal, action=action, next_state=next_state) # - 10*done
 
         # now transition the goal in preparation for the next act() step
@@ -190,7 +171,6 @@ class MetaAgent(BaseAgent):
         # also: lo_agent should not know or care if it's the end of the real episode:
         # this is hi_agent's concern!
         lo_done = (self.t % self.c == 0)
->>>>>>> master
 
         # The lower-level policy will store the experience
         # (st, gt, at, rt, st+1, h(st, gt, st+1))
@@ -211,11 +191,7 @@ class MetaAgent(BaseAgent):
                 reward=self.hi_rewards,
                 next_state=next_state,
                 done=done,
-<<<<<<< HEAD
-                relabel=False,
-=======
                 relabeller=self.relabel_hi_action,
->>>>>>> master
                 lo_state_seq=self.lo_state_seq,
                 lo_action_seq=self.lo_action_seq,
                 lo_current_policy=self.lo_agent.act)
@@ -314,11 +290,8 @@ class MetaAgent(BaseAgent):
         # find the (approximate) goal that maximises the likelihood of the observed actions
         likeliest_goal = np.argmax(lo_policy_likelihoods)
 
-<<<<<<< HEAD
-=======
         return candidate_goals[likeliest_goal]
 
->>>>>>> master
     def save_model(self, filepath:str):
         self.hi_agent.save_model(filepath + '/hi_agent')
         self.lo_agent.save_model(filepath + '/lo_agent')
