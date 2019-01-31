@@ -10,13 +10,14 @@ from ddpg_agent.ddpg_agent import DDPGAgent
 from ddpg_agent.dummy_agent import DummyAgent
 from meta_agent import MetaAgent
 from tensorboard_evaluation import Evaluation
+from lunar_lander import LunarLanderContinuous
 
 def ensure_path(p):
     if not os.path.exists(p):
         os.mkdir(p)
 
 def test_agent(n_episodes: int=10, render: bool=True):
-    env = ContinuousCartPoleEnv() if not COMPLEXENV else BipedalWalker()
+    env = ContinuousCartPoleEnv() if not COMPLEXENV else LunarLanderContinuous()
     # load agent
     if not HIERARCHY:
         agent = DDPGAgent.load_pretrained_agent(
@@ -28,9 +29,12 @@ def test_agent(n_episodes: int=10, render: bool=True):
             hi_action_space = gym.spaces.Box(
                 low=[-2.4, -3, -np.pi, -10],
                 high=[2.4, 3, np.pi, 10],
-                dtype=env.state_space.dtype)
+                dtype=env.observation_space.dtype)
         else:
-            hi_action_space = None
+            hi_action_space = gym.spaces.Box(
+                low=np.array([-100]*8),
+                high=np.array([100]*8),
+                dtype=env.observation_space.dtype)
 
         agent = MetaAgent(
             env.observation_space,
@@ -71,7 +75,7 @@ def test_agent(n_episodes: int=10, render: bool=True):
 
 
 def train_agent(n_episodes: int=1000, render: bool=True):
-    env = ContinuousCartPoleEnv() if not COMPLEXENV else BipedalWalker()
+    env = ContinuousCartPoleEnv() if not COMPLEXENV else LunarLanderContinuous()
     tensorboard_path = os.path.join(".", "tensorboard")
     ensure_path(tensorboard_path)
     tensorboard_path = os.path.join(tensorboard_path, NAME)
@@ -91,7 +95,8 @@ def train_agent(n_episodes: int=1000, render: bool=True):
         state_space=env.observation_space,
         action_space = env.action_space,
         epslon_greedy=0.7,
-        exploration_decay=0.99999
+        exploration_decay=0.99999,
+        n_units=[128,64]
         )
     else:
         if not COMPLEXENV:
@@ -100,7 +105,10 @@ def train_agent(n_episodes: int=1000, render: bool=True):
                 high=np.array([2.4, 3, np.pi, 10]),
                 dtype=env.observation_space.dtype)
         else:
-            hi_action_space = None
+            hi_action_space = gym.spaces.Box(
+                low=np.array([-100]*8),
+                high=np.array([100]*8),
+                dtype=env.observation_space.dtype)
 
         agent = MetaAgent(
             env.observation_space,
@@ -247,7 +255,7 @@ if __name__ == "__main__":
         type=int,
         help="number of episodes to train for"
     )
-    parser.add_argument("--hier", action="store_true", default=True, help="Run Hierarchical (rather than DDPG)")
+    parser.add_argument("--hier", action="store_true", default=False, help="Run Hierarchical (rather than DDPG)")
     parser.add_argument("--walker", action="store_true", default=False, help="Run Bipedal Walker (rather than CCP)")
     parser.add_argument("--render", action="store_true", default=False, help="show window")
     args = parser.parse_args()
@@ -261,7 +269,7 @@ if __name__ == "__main__":
     print(args)
     #override here for ease of testing
     # COMPLEXENV = Trues
-    HIERARCHY = True
+    HIERARCHY = False
     RENDER = True
 
     saved_models_dir = os.path.join('.','saved_models')

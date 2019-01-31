@@ -22,7 +22,7 @@ class DDPGAgent(HiAgent):
         discount_factor=0.99,
         tau=0.0001,
         epslon_greedy=0.4, #TODO
-        exploration_decay=0.9999,
+        exploration_decay=0.999,
         use_ou_noise=False
         ):
         super().__init__(state_space, action_space)
@@ -117,10 +117,12 @@ class DDPGAgent(HiAgent):
         action = self.actor_behaviour.predict(state) #tanh'd (-1, 1)
         
         if explore:
-            noise = self.ou_noise.noise()
-            action = (1-self.epslon_greedy)*action + noise * self.epslon_greedy
-            if self.epslon_greedy > 0.1:
-                self.epslon_greedy = self.epslon_greedy * self.explr_decay
+            prob = np.random.uniform()
+            if prob > self.epslon_greedy:
+                action = action + np.random.randn(*action.shape) * 0.2
+                self.epslon_greedy *= self.explr_decay if self.epslon_greedy > 0.1 else 1
+            else:
+                action = np.random.uniform(-1, 1, size=action.shape)
 
         action = np.clip(action, a_min=-1, a_max=1)
 

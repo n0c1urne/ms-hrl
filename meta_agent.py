@@ -16,7 +16,7 @@ class MetaAgent(BaseAgent):
                  hi_agent_cls=HiAgent,
                  lo_agent_cls=BaseAgent,
                  models_dir=None,
-                 c=80,
+                 c=40,
                  hi_action_space=None):
         # note, this will not work if initialised with
         # default parameters!
