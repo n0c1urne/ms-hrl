@@ -5,11 +5,13 @@ import tensorflow as tf
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import Dense, Flatten, BatchNormalization, ReLU
 from tensorflow.keras.initializers import RandomNormal
+from ddpg_agent.ou_noise import OUNoise
+
 import os
 
 class DDPGAgent(HiAgent):
-    def __init__(self, 
-        state_space: 'Box'=None, 
+    def __init__(self,
+        state_space: 'Box'=None,
         action_space: 'Box'=None,
         actor_behaviour: Sequential=None,
         actor_target: Sequential=None,
@@ -20,7 +22,8 @@ class DDPGAgent(HiAgent):
         discount_factor=0.99,
         tau=0.001,
         epslon_greedy=0.4, #TODO
-        exploration_decay=0.9999
+        exploration_decay=0.9999,
+        use_ou_noise=False
         ):
         super().__init__(state_space, action_space)
         self.actor_behaviour = actor_behaviour
@@ -33,6 +36,8 @@ class DDPGAgent(HiAgent):
         self.tau = tau
         self.epslon_greedy = epslon_greedy
         self.explr_decay = exploration_decay
+        self.use_ou_noise = use_ou_noise
+        self.ou_noise = OUNoise(self.action_space.shape[0])
 
     @classmethod
     def new_trainable_agent(cls,
@@ -40,6 +45,8 @@ class DDPGAgent(HiAgent):
         learning_rate_critic=0.0001,
         batch_size=64,
         use_long_buffer=False,
+        n_units = [128, 64],
+        weights_stdev=0.000001,
         **kwargs) -> 'DDPGAgent':
 
         # Get dimensionality of action/state space
@@ -47,23 +54,29 @@ class DDPGAgent(HiAgent):
         n_actions = kwargs['action_space'].shape[0]
 
         # Weights initialization
+<<<<<<< HEAD
         n_units_1 = 256
         n_units_2 = 256
         kernel_initializer = RandomNormal(mean=0.0, stddev=0.000001, seed=None) # TODO: fix seed to test some hyperparameters that are non-network related
+=======
+        kernel_initializer = RandomNormal(mean=0.0, stddev=weights_stdev, seed=None) # TODO: maybe fix seed and test some hyperparameters that are non-network related
+>>>>>>> master
 
         # Create actor_behaviour network
         adam_act = tf.keras.optimizers.Adam(learning_rate_actor)
         act_behav = Sequential()
-        act_behav.add(Dense(n_units_1, input_dim=state_dim, kernel_initializer=kernel_initializer, activation='relu'))
-        act_behav.add(Dense(n_units_2, kernel_initializer=kernel_initializer, activation='relu'))
+        act_behav.add(Dense(n_units[0], input_dim=state_dim, kernel_initializer=kernel_initializer, activation='relu'))
+        for layer_units in n_units[1:]:
+            act_behav.add(Dense(layer_units, kernel_initializer=kernel_initializer, activation='relu'))
         act_behav.add(Dense(n_actions, kernel_initializer=kernel_initializer, activation='tanh'))
         act_behav.compile(loss='mean_squared_error', optimizer=adam_act)
 
         # Create crit_behaviour network
         adam_crit = tf.keras.optimizers.Adam(learning_rate_critic)
         crit_behav = Sequential()
-        crit_behav.add(Dense(n_units_1, input_dim=state_dim+n_actions, kernel_initializer=kernel_initializer, activation='relu'))
-        crit_behav.add(Dense(n_units_2, kernel_initializer=kernel_initializer, activation='relu'))
+        crit_behav.add(Dense(n_units[0], input_dim=state_dim+n_actions, kernel_initializer=kernel_initializer, activation='relu'))
+        for layer_units in n_units[1:]:
+            crit_behav.add(Dense(layer_units, kernel_initializer=kernel_initializer, activation='relu'))
         crit_behav.add(Dense(1, kernel_initializer=kernel_initializer))
         crit_behav.compile(loss='mean_squared_error', optimizer=adam_crit) # todo: actor doesnt have a explicit loss, why are we specifying one
 
@@ -104,11 +117,12 @@ class DDPGAgent(HiAgent):
             critic_behaviour=crit_behav, critic_target=crit_targ, **kwargs)
 
 
-    def act(self, state, explore=False, rough_explore=True):
+    def act(self, state, explore=False):
         # action = self.actor_behaviour.predict(self.reshape_input(state))[0]
         assert not np.isnan(state).any()
 
         action = self.actor_behaviour.predict(state) #tanh'd (-1, 1)
+<<<<<<< HEAD
 
         if explore:
             if self.replay_buffer.use_long:
@@ -124,24 +138,40 @@ class DDPGAgent(HiAgent):
                     action[np.random.rand(*action.shape) > 0.5] = -1
                     self.epslon_greedy = self.epslon_greedy * self.explr_decay if self.epslon_greedy > 0.05 else 0.05
 
+=======
+        
+        if explore:
+            noise = self.ou_noise.noise()
+            action = (1-self.epslon_greedy)*action + noise * self.epslon_greedy
+            if self.epslon_greedy > 0.1:
+                self.epslon_greedy = self.epslon_greedy * self.explr_decay
+        
+>>>>>>> master
         action = np.clip(action, a_min=-1, a_max=1)
 
-        assert not np.isnan(action).any() # todo remove?
-        return action 
-        
+        assert not np.isnan(action).any()
+        return action
+
+    def modify_epslon_greedy(self, factor, mode='increment'):
+        if mode == 'increment':
+            self.epslon_greedy += factor
+        elif mode == 'assign':
+            self.epslon_greedy = factor
+        else:
+            pass
+
     def train(self,
               state,
               action,
               reward: float,
               next_state,
               done: bool,
-              relabel=False,
+              relabeller=None,
               lo_state_seq=None,
               lo_action_seq=None,
               lo_current_policy=None):
         assert self.replay_buffer is not None, 'It seems like you are trying to train a pretrained model. Not cool, dude.'
         # add a transition to the buffer
-        
         self.replay_buffer.add(
             state_before=np.squeeze(state, axis=0), 
             action=np.squeeze(action, axis=0), 
@@ -150,15 +180,18 @@ class DDPGAgent(HiAgent):
             done_flag=done, 
             lo_state_seq=lo_state_seq, 
             lo_action_seq=lo_action_seq)
+        # ...
+        
 
         #sample a batch
         batch = self.replay_buffer.sample_batch()
 
         # off policy correction / relabelling!
-        if relabel:
+        if relabeller is not None:
             for i in range(batch.actions.shape[0]): #TODO make r_g fn accept batches
-                batch.actions[i] = self.relabel_goal(
-                    original_goal=batch.actions[i],
+                batch.actions[i] = relabeller(
+                    orig_hi_action=batch.actions[i],
+                    goal_scaler=self.scale_action,
                     lo_state_seq=batch.lo_state_seqs[i], 
                     lo_action_seq=batch.lo_action_seqs[i],
                     lo_current_policy=lo_current_policy)
@@ -189,17 +222,17 @@ class DDPGAgent(HiAgent):
             target_weights = target.get_weights()
             new_target_weights = [self.tau*b + (1-self.tau)*t for b, t in zip(behaviour_weights, target_weights)]
             target.set_weights(new_target_weights)
-        
+
         # slowly update target weights for actor and critic
         update_target_weights(self.actor_behaviour, self.actor_target)
         update_target_weights(self.critic_behaviour, self.critic_target)
         
-        loss = info.history['loss'][0] # TODO: forgot why zero. Inspect
-        return loss
+        loss = info.history['loss'][0]
+        return loss, None #to be compatible with return type of MetaAgent
     
     def save_model(self, filepath:str):
         if not os.path.exists(filepath):
-            os.mkdir(filepath)  
+            os.mkdir(filepath)
 
         tf.keras.models.save_model(self.actor_behaviour, filepath+'/actbeh.model')
         tf.keras.models.save_model(self.actor_target, filepath+'/acttar.model')
