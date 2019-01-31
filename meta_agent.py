@@ -177,11 +177,11 @@ class MetaAgent(BaseAgent):
         # (st, gt, at, rt, st+1, h(st, gt, st+1))
         # for off-policy training.
         lo_loss, _ = self.lo_agent.train(
-            np.concatenate([state, old_goal], axis=1),
-            action,
-            self.lo_reward,
-            np.concatenate([next_state, self.goal], axis=1),
-            lo_done)
+            state=np.concatenate([state, old_goal], axis=1),
+            action=action,
+            reward=self.lo_reward,
+            next_state=np.concatenate([next_state, self.goal], axis=1),
+            done=lo_done)
 
         # is it time to train the HL agent?
         hi_loss = None
