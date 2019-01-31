@@ -78,7 +78,7 @@ class MetaAgent(BaseAgent):
                 epslon_greedy=0.8,
                 exploration_decay = 0.99999,
                 use_ou_noise=True,
-                discount_factor=0.85,
+                discount_factor=0.99,
                 n_units=[128, 64],
                 weights_stdev=0.0001,
                 )

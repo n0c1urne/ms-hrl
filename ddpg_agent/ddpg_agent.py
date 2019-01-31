@@ -20,7 +20,7 @@ class DDPGAgent(HiAgent):
         replay_buffer: ReplayBuffer=None,
         train_actor_op: tf.Tensor=None,
         discount_factor=0.99,
-        tau=0.001,
+        tau=0.0001,
         epslon_greedy=0.4, #TODO
         exploration_decay=0.9999,
         use_ou_noise=False
