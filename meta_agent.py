@@ -109,7 +109,7 @@ class MetaAgent(BaseAgent):
         todo - make this a customisable function?
         """
         # difference = np.abs(goal - next_state)
-        difference = np.abs(state + goal - next_state) #now an increment
+        difference = np.abs(next_state - state) #now an increment
 
         # so that diff between np.pi, -np.pi = 0 for angles
         difference = np.where(self.state_space_angles,
@@ -118,14 +118,19 @@ class MetaAgent(BaseAgent):
 
         normalized_differences = np.abs(difference) / (self.hi_action_space.high - self.hi_action_space.low)
 
-        final_reward = np.linalg.norm(1 - normalized_differences) /np.sqrt(state.shape[1]) # ** 2 #removed the square. ask gui why
+        #final_reward = np.linalg.norm(1 - normalized_differences) /np.sqrt(state.shape[1]) # ** 2 #removed the square. ask gui why
+        final_reward  = self.cosine_similarity(normalized_differences, goal)
 
+        return final_reward
+
+    def cosine_similarity(self, state_diff, goal):
+        epsilon = 0.000001
+        final_reward = float(state_diff @ goal.T / (np.linalg.norm(state_diff)*np.linalg.norm(goal) + epsilon))
         return final_reward
 
     def modify_epslon_greedy(self, factor, mode='increment'):
         self.hi_agent.modify_epslon_greedy(factor=factor, mode=mode)
         self.lo_agent.modify_epslon_greedy(factor=factor, mode=mode)
-
 
     def act(self, state, explore=False):
 
