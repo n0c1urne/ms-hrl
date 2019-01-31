@@ -16,7 +16,7 @@ class MetaAgent(BaseAgent):
                  hi_agent_cls=HiAgent,
                  lo_agent_cls=BaseAgent,
                  models_dir=None,
-                 c=40,
+                 c=80,
                  hi_action_space=None):
         # note, this will not work if initialised with
         # default parameters!
@@ -63,10 +63,11 @@ class MetaAgent(BaseAgent):
                 state_space=state_space,
                 action_space=self.hi_action_space,
                 use_long_buffer=True,
-                epslon_greedy=1.0,
-                exploration_decay = 0.9999,
+                epslon_greedy=0.3,
+                batch_size=256,
+                exploration_decay = 0.99999,
                 discount_factor=0.99,
-                n_units=[256, 128, 64],
+                n_units=[64, 64, 64],
                 weights_stdev=0.01,
                 )
 
@@ -74,7 +75,7 @@ class MetaAgent(BaseAgent):
             self.lo_agent = lo_agent_cls.new_trainable_agent(
                 state_space=self.lo_state_space,
                 action_space=action_space,
-                epslon_greedy=1.0,
+                epslon_greedy=0.3,
                 exploration_decay = 0.99999,
                 use_ou_noise=True,
                 discount_factor=0.85,
