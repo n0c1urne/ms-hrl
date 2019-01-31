@@ -63,19 +63,19 @@ class MetaAgent(BaseAgent):
                 state_space=state_space,
                 action_space=self.hi_action_space,
                 use_long_buffer=True,
-                epslon_greedy=0.3,
+                epslon_greedy=0.8,
                 batch_size=256,
-                exploration_decay = 0.99999,
+                exploration_decay = 0.9999,
                 discount_factor=0.99,
                 n_units=[64, 64, 64],
-                weights_stdev=0.01,
+                weights_stdev=0.03,
                 )
 
             # low level agent's states will be (state, goal) concatenated
             self.lo_agent = lo_agent_cls.new_trainable_agent(
                 state_space=self.lo_state_space,
                 action_space=action_space,
-                epslon_greedy=0.3,
+                epslon_greedy=0.8,
                 exploration_decay = 0.99999,
                 use_ou_noise=True,
                 discount_factor=0.85,
@@ -246,7 +246,7 @@ class MetaAgent(BaseAgent):
 
         candidate_hi_actions = np.random.normal(
             loc=orig_hi_action,
-            scale=(1/3), #since we're in (1/1) space...
+            scale=stdev_goal, #since we're in (1/1) space...
             size=(n_candidate_hi_acts, *orig_hi_action.shape))
 
         # also include the original hi_action gt

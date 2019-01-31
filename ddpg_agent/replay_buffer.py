@@ -20,7 +20,7 @@ class ReplayBuffer():
         self.states_after = []
         self.rewards = []
         self.done_flags = []
-
+        self.epsilon_greedy = 1
         self.use_long = use_long
 
         if self.use_long:
@@ -97,7 +97,8 @@ class ReplayBuffer():
             lss = np.array(lss)
             las = np.array(las)
             for i in range(b_size):
-                rw[i] += 0.05 * self.reward(sb[i]+ac[i])
+                rw[i] += self.epsilon_greedy * self.reward(sb[i]+ac[i])
+                self.epsilon_greedy *= 0.999 if self.epsilon_greedy > 0.05 else 1
             return ReplayBatchLong(states_before=sb, actions=ac, states_after=sa, rewards=rw, done_flags=df, lo_state_seqs=lss, lo_action_seqs=las)
         
         return ReplayBatch(states_before=sb, actions=ac, states_after=sa, rewards=rw, done_flags=df)

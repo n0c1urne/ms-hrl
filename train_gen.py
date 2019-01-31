@@ -28,7 +28,7 @@ def test_agent(n_episodes: int=10, render: bool=True):
             hi_action_space = gym.spaces.Box(
                 low=[-2.4, -3, -np.pi, -10],
                 high=[2.4, 3, np.pi, 10],
-                dtype=state_space.dtype)
+                dtype=env.state_space.dtype)
         else:
             hi_action_space = None
 
