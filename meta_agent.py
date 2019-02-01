@@ -116,7 +116,7 @@ class MetaAgent(BaseAgent):
 
         normalized_differences = np.abs(difference) / (self.hi_action_space.high - self.hi_action_space.low)
 
-        final_reward = np.linalg.norm(1 - normalized_differences) /np.sqrt(state.shape[1]) # ** 2 #removed the square. ask gui why
+        final_reward = np.linalg.norm(1 - normalized_differences) /np.sqrt(state.shape[1]) # ** 2 #removed the square. because norm already squares it.
 
         return final_reward
 
@@ -165,7 +165,6 @@ class MetaAgent(BaseAgent):
         # old_goal = self.goal
         # self.goal = self.goal_transition(self.goal, state, next_state)
         
-        # print("Transition: ", state, "g", goal, "s+g" state + goal)
         # is it the end of a sub-episode?
         # note, sequence is: lo.act(), t++, lo.train().
         # so, if t % c == 0 now, lo.agent has just reached the end of the episode

@@ -13,7 +13,7 @@ from tensorboard_evaluation import Evaluation
 
 # for CCP and bipedal respectively
 # calculated from inspection / sampling
-HI_ACTION_LIMITS = [[2.4, 3, np.pi, 10],
+HI_ACTION_LIMITS = [[1.2, 3, np.pi, 10],
                     [
                         1.93463567, 0.184130755, 0.350053925, 0.32318072,
                         1.025671095, 1.182890775, 1.236717375, 1.17722261, 0.5,
@@ -294,6 +294,6 @@ if __name__ == "__main__":
     # Fixing seed for comparing features
     np.random.seed(0)
 
-    # train_agent(n_steps=100, render=RENDER)
+    # train_agent(n_steps=1000, render=RENDER)
     train_agent(n_steps=args.steps, render=RENDER)
     test_agent()
