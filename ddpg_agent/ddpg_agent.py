@@ -191,7 +191,7 @@ class DDPGAgent(HiAgent):
         session.run([self.train_actor_op], {
             # self.critic_behaviour.input: self.reshape_input(batch.states_before, behaviour_actions),
             # self.actor_behaviour.input: self.reshape_input(batch.states_before)
-            self.critic_behaviour.input: np.concatenate((batch.states_after, behaviour_actions), axis=1),
+            self.critic_behaviour.input: np.concatenate((batch.states_before, behaviour_actions), axis=1),
             self.actor_behaviour.input: batch.states_before
         })
 
