@@ -64,11 +64,11 @@ class MetaAgent(BaseAgent):
                 action_space=self.hi_action_space,
                 use_long_buffer=True,
                 epslon_greedy=0.8,
-                batch_size=256,
+                batch_size=128,
                 exploration_decay = 0.9999,
                 discount_factor=0.99,
                 n_units=[64, 64, 64],
-                weights_stdev=0.03,
+                weights_stdev=0.003,
                 )
 
             # low level agent's states will be (state, goal) concatenated
@@ -80,7 +80,7 @@ class MetaAgent(BaseAgent):
                 use_ou_noise=True,
                 discount_factor=0.99,
                 n_units=[128, 64],
-                weights_stdev=0.0001,
+                weights_stdev=0.003,
                 )
         else:
             self.hi_agent = hi_agent_cls.load_pretrained_agent(filepath=models_dir + '/hi_agent',

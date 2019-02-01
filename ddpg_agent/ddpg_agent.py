@@ -119,7 +119,7 @@ class DDPGAgent(HiAgent):
         if explore:
             prob = np.random.uniform()
             if prob > self.epslon_greedy:
-                std = max(0.3 * self.epslon_greedy * 1.4, 0.1)
+                std = max(0.3 * self.epslon_greedy * 1.7, 0.1)
                 action = action + np.random.randn(*action.shape) * std
                 self.epslon_greedy *= self.explr_decay if self.epslon_greedy > 0.1 else 1
             else:
