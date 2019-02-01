@@ -20,7 +20,7 @@ class DDPGAgent(HiAgent):
         replay_buffer: ReplayBuffer=None,
         train_actor_op: tf.Tensor=None,
         discount_factor=0.99,
-        tau=0.0001,
+        tau=0.001,
         epslon_greedy=0.4, #TODO
         exploration_decay=0.999,
         use_ou_noise=False
@@ -46,7 +46,7 @@ class DDPGAgent(HiAgent):
         batch_size=64,
         use_long_buffer=False,
         n_units = [128, 64],
-        weights_stdev=0.000001,
+        weights_stdev=0.003,
         **kwargs) -> 'DDPGAgent':
 
         # Get dimensionality of action/state space
@@ -119,7 +119,8 @@ class DDPGAgent(HiAgent):
         if explore:
             prob = np.random.uniform()
             if prob > self.epslon_greedy:
-                action = action + np.random.randn(*action.shape) * 0.2
+                std = max(0.3 * self.epslon_greedy * 1.4, 0.1)
+                action = action + np.random.randn(*action.shape) * std
                 self.epslon_greedy *= self.explr_decay if self.epslon_greedy > 0.1 else 1
             else:
                 action = np.random.uniform(-1, 1, size=action.shape)

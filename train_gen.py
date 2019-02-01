@@ -96,7 +96,7 @@ def train_agent(n_episodes: int=1000, render: bool=True):
         action_space = env.action_space,
         epslon_greedy=0.7,
         exploration_decay=0.99999,
-        n_units=[128,64]
+        n_units=[128,128]
         )
     else:
         if not COMPLEXENV:
@@ -270,7 +270,7 @@ if __name__ == "__main__":
     #override here for ease of testing
     # COMPLEXENV = Trues
     HIERARCHY = False
-    RENDER = True
+    RENDER = False
 
     saved_models_dir = os.path.join('.','saved_models')
     ensure_path(saved_models_dir)
