@@ -17,6 +17,7 @@ class MetaAgent(BaseAgent):
                  lo_agent_cls=BaseAgent,
                  models_dir=None,
                  c=40,
+                 tau=0.9,
                  hi_action_space=None):
         # note, this will not work if initialised with
         # default parameters!
@@ -34,7 +35,7 @@ class MetaAgent(BaseAgent):
         self.hi_action = None # HL agent's actions in (-1, 1) space (direct from network)
         self.goal = None # HL agent's actions translated to (low, high) space
         self.lo_reward = None # so that this can be retrieved for score display
-
+        self.tau = tau # polyak averaging of low level agent reward and high agent reward
         # these will record sequences necessary for off-policy relabelling later
         self.lo_action_seq = np.empty((c, *action_space.shape))
         self.lo_state_seq = np.empty((c, *state_space.shape))
@@ -63,24 +64,22 @@ class MetaAgent(BaseAgent):
                 state_space=state_space,
                 action_space=self.hi_action_space,
                 use_long_buffer=True,
-                epslon_greedy=0.8,
-                batch_size=128,
+                exploration_magnitude=0.7,
                 exploration_decay = 0.9999,
                 discount_factor=0.99,
-                n_units=[64, 64, 64],
-                weights_stdev=0.003,
+                n_units=[256, 128, 64],
+                weights_stdev=0.03,
                 )
 
             # low level agent's states will be (state, goal) concatenated
             self.lo_agent = lo_agent_cls.new_trainable_agent(
                 state_space=self.lo_state_space,
                 action_space=action_space,
-                epslon_greedy=0.8,
+                exploration_magnitude=0.7,
                 exploration_decay = 0.99999,
-                use_ou_noise=True,
-                discount_factor=0.99,
+                discount_factor=0.95,
                 n_units=[128, 64],
-                weights_stdev=0.003,
+                weights_stdev=0.0001,
                 )
         else:
             self.hi_agent = hi_agent_cls.load_pretrained_agent(filepath=models_dir + '/hi_agent',
@@ -110,7 +109,7 @@ class MetaAgent(BaseAgent):
         todo - make this a customisable function?
         """
         # difference = np.abs(goal - next_state)
-        difference = np.abs(next_state - state) #now an increment
+        difference = np.abs(state + goal - next_state) #now an increment
 
         # so that diff between np.pi, -np.pi = 0 for angles
         difference = np.where(self.state_space_angles,
@@ -119,28 +118,24 @@ class MetaAgent(BaseAgent):
 
         normalized_differences = np.abs(difference) / (self.hi_action_space.high - self.hi_action_space.low)
 
-        #final_reward = np.linalg.norm(1 - normalized_differences) /np.sqrt(state.shape[1]) # ** 2 #removed the square. ask gui why
-        final_reward  = self.cosine_similarity(normalized_differences, goal)
+        final_reward = np.linalg.norm(1 - normalized_differences) /np.sqrt(state.shape[1]) # ** 2 #removed the square. ask gui why
+        # final_reward  = self.cosine_similarity(normalized_differences, goal)
 
         return final_reward
 
-    def cosine_similarity(self, state_diff, goal):
-        epsilon = 0.000001
-        final_reward = float(state_diff @ goal.T / (np.linalg.norm(state_diff)*np.linalg.norm(goal) + epsilon))
-        return final_reward
+    def modify_exploration_magnitude(self, factor, mode='increment'):
+        self.hi_agent.modify_exploration_magnitude(factor=factor, mode=mode)
+        self.lo_agent.modify_exploration_magnitude(factor=factor, mode=mode)
 
-    def modify_epslon_greedy(self, factor, mode='increment'):
-        self.hi_agent.modify_epslon_greedy(factor=factor, mode=mode)
-        self.lo_agent.modify_epslon_greedy(factor=factor, mode=mode)
 
-    def act(self, state, explore=False):
+    def act(self, state, explr_mode="no_exploration"):
 
         # is it time for a high-level action?
         if self.t % self.c == 0:
             self.t = 0
 
             # HL agent picks a new state from space and sets it as LL's goal
-            self.hi_action = self.hi_agent.act(state, explore) #this will be in (-1
+            self.hi_action = self.hi_agent.act(state, explr_mode) #this will be in (-1
             self.goal = self.hi_agent.scale_action(self.hi_action)
 
             # save for later training
@@ -150,7 +145,9 @@ class MetaAgent(BaseAgent):
 
         # action in environment comes from low level agent
         goal_broadcast = np.broadcast_to(self.goal, state.shape) #add a batch dimension just in case it's not there
-        lo_action = self.lo_agent.act(np.concatenate([state, goal_broadcast], axis=1), explore)
+        lo_action = self.lo_agent.act(
+            state=np.concatenate([state, goal_broadcast], axis=1),
+            explr_mode=explr_mode)
 
         self.lo_state_seq[self.t] = state
         self.lo_action_seq[self.t] = lo_action #unscaled - still tanh space. good!
@@ -165,9 +162,12 @@ class MetaAgent(BaseAgent):
         self.hi_rewards += reward
 
         # provide LL agent with intrinsic reward
-        self.lo_reward = self.intrinsic_reward(state=state, goal=self.goal, action=action, next_state=next_state) # - 10*done
+        self.lo_reward = self.intrinsic_reward(state=state, goal=self.goal, action=action, next_state=next_state)
 
+        # add polyak average of hi-level agent reward
+        self.hi_rewards = self.tau * self.hi_rewards + (1-self.tau) * self.lo_reward
         # now transition the goal in preparation for the next act() step
+        old_goal = self.goal
         self.goal = self.goal_transition(self.goal, state, next_state)
         # print("Transition: ", state, "g", goal, "s+g" state + goal)
         # is it the end of a sub-episode?
@@ -182,7 +182,7 @@ class MetaAgent(BaseAgent):
         # (st, gt, at, rt, st+1, h(st, gt, st+1))
         # for off-policy training.
         lo_loss, _ = self.lo_agent.train(
-            np.concatenate([state, self.goal], axis=1),
+            np.concatenate([state, old_goal], axis=1),
             action,
             self.lo_reward,
             np.concatenate([next_state, self.goal], axis=1),
@@ -246,7 +246,7 @@ class MetaAgent(BaseAgent):
 
         candidate_hi_actions = np.random.normal(
             loc=orig_hi_action,
-            scale=stdev_goal, #since we're in (1/1) space...
+            scale=(1/3), #since we're in (1/1) space...
             size=(n_candidate_hi_acts, *orig_hi_action.shape))
 
         # also include the original hi_action gt
