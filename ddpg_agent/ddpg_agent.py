@@ -43,7 +43,7 @@ class DDPGAgent(HiAgent):
     def new_trainable_agent(cls,
         learning_rate_actor=0.0001,
         learning_rate_critic=0.0001,
-        batch_size=64,
+        batch_size=128,
         use_long_buffer=False,
         n_units = [128, 64],
         weights_stdev=0.000001,
@@ -151,7 +151,7 @@ class DDPGAgent(HiAgent):
         else:
             pass
 
-    def train(self):
+    def train(self, relabeller=None, lo_current_policy=None):
         assert self.replay_buffer is not None, 'It seems like you are trying to train a pretrained model. Not cool, dude.'
         # add a transition to the buffer
         #sample a batch

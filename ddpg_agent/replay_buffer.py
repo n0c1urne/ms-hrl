@@ -22,6 +22,7 @@ class ReplayBuffer():
         self.done_flags = []
         self.epsilon_greedy = 1
         self.use_long = use_long
+        self.count = 0
 
         if self.use_long:
             self.lo_state_seqs = []
@@ -42,6 +43,7 @@ class ReplayBuffer():
             assert lo_action_seq is not None
             self.lo_state_seqs.append(lo_state_seq)
             self.lo_action_seqs.append(lo_action_seq)
+        self.count += 1
 
         if len(self.states_before) > self.buffer_size:
             self.states_before.pop(0)
@@ -52,6 +54,7 @@ class ReplayBuffer():
             if self.use_long:
                 self.lo_state_seqs.pop(0)
                 self.lo_action_seqs.pop(0)
+            self.count -= 1
 
     def __len__(self):
         """

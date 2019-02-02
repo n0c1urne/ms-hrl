@@ -16,8 +16,8 @@ class MetaAgent(BaseAgent):
                  hi_agent_cls=HiAgent,
                  lo_agent_cls=BaseAgent,
                  models_dir=None,
-                 c=50,
-                 tau=0.99,
+                 c=60,
+                 tau=0.95,
                  hi_action_space=None):
         # note, this will not work if initialised with
         # default parameters!
@@ -161,7 +161,6 @@ class MetaAgent(BaseAgent):
 
         # provide LL agent with intrinsic reward
         self.lo_reward = self.intrinsic_reward(state=state, goal=self.goal, action=action, next_state=next_state) + reward
-
         # add polyak average of hi-level agent reward
         self.hi_rewards = self.tau * self.hi_rewards + (1-self.tau) * self.lo_reward
         # now transition the goal in preparation for the next act() step
@@ -175,40 +174,34 @@ class MetaAgent(BaseAgent):
         # also: lo_agent should not know or care if it's the end of the real episode:
         # this is hi_agent's concern!
         lo_done = (self.t % self.c == 0)
-
         # The lower-level policy will store the experience
         # (st, gt, at, rt, st+1, h(st, gt, st+1))
         # for off-policy training.  
-        lo_loss, _ = self.lo_agent.train(
-            np.concatenate([state, old_goal], axis=1),
-            action,
-            self.lo_reward,
-            np.concatenate([next_state, self.goal], axis=1),
-            lo_done)
-
-        hi_loss, _ = self.hi_agent.train(
-                state=self.hi_state,
-                action=self.hi_action, #(-1, 1)
-                reward=self.hi_rewards,
-                next_state=next_state,
-                done=done,
-                relabeller=self.relabel_hi_action,
-                lo_state_seq=self.lo_state_seq,
-                lo_action_seq=self.lo_action_seq,
-                lo_current_policy=self.lo_agent.act)
+        self.lo_agent.replay_buffer.add(
+            state_before=np.squeeze(np.concatenate([state, old_goal], axis=1), axis=0),
+            action=np.squeeze(action, axis=0),
+            reward=self.lo_reward,
+            state_after=np.squeeze(np.concatenate([next_state, self.goal], axis=1), axis=0),
+            done_flag=lo_done
+        )
+        lo_loss, _ = self.lo_agent.train()
+        # train_high level agent
         # is it time to train the HL agent?
         if self.t % self.c == 0:
             self.hi_agent.replay_buffer.add(
-                state_before=np.squeeze(state, axis=0), 
-                action=np.squeeze(action, axis=0), 
+                state_before=np.squeeze(self.hi_state, axis=0), 
+                action=np.squeeze(self.hi_action, axis=0), 
                 state_after=np.squeeze(next_state, axis=0), 
-                reward=reward, 
+                reward=self.hi_rewards, 
                 done_flag=done, 
-                lo_state_seq=lo_state_seq, 
-                lo_action_seq=lo_action_seq))
+                lo_state_seq=self.lo_state_seq,
+                lo_action_seq=self.lo_action_seq)
             # reset this
             self.hi_rewards = 0
-
+        # train hi-agent
+        hi_loss = None
+        if self.hi_agent.replay_buffer.count >= self.hi_agent.replay_buffer.batch_size:
+            hi_loss, _ = self.hi_agent.train(self.relabel_hi_action, lo_current_policy=self.lo_agent.act)
         return lo_loss, hi_loss
 
     @staticmethod
