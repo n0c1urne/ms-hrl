@@ -151,29 +151,9 @@ class DDPGAgent(HiAgent):
         else:
             pass
 
-    def train(self,
-              state,
-              action,
-              reward: float,
-              next_state,
-              done: bool,
-              relabeller=None,
-              lo_state_seq=None,
-              lo_action_seq=None,
-              lo_current_policy=None):
+    def train(self):
         assert self.replay_buffer is not None, 'It seems like you are trying to train a pretrained model. Not cool, dude.'
         # add a transition to the buffer
-        self.replay_buffer.add(
-            state_before=np.squeeze(state, axis=0), 
-            action=np.squeeze(action, axis=0), 
-            state_after=np.squeeze(next_state, axis=0), 
-            reward=reward, 
-            done_flag=done, 
-            lo_state_seq=lo_state_seq, 
-            lo_action_seq=lo_action_seq)
-        # ...
-        
-
         #sample a batch
         batch = self.replay_buffer.sample_batch()
 

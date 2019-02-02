@@ -137,7 +137,7 @@ def train_agent(n_steps: int=500000, render: bool=True, early_stop=True):
             hi_agent_cls=DDPGAgent,
             lo_agent_cls=DDPGAgent,
             hi_action_space=hi_action_space,
-            c=80)
+            c=100)
 
     total_steps, ep = 0, 0
 
@@ -160,7 +160,7 @@ def train_agent(n_steps: int=500000, render: bool=True, early_stop=True):
                     env.render(goal_state=goal_state)
 
             steps += 1
-            action = agent.act(state=state, explr_mode="gaussian_epsilon")
+            action = agent.act(state=state, explr_mode="gaussian")
 
             if HIERARCHY:
                 goal_state = np.squeeze(state + agent.goal)
@@ -293,7 +293,7 @@ if __name__ == "__main__":
     #override here for ease of testing
     # COMPLEXENV = True
     HIERARCHY = True
-    RENDER = False
+    RENDER = True
 
     saved_models_dir = os.path.join('.','saved_models')
     ensure_path(saved_models_dir)

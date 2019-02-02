@@ -16,8 +16,8 @@ class MetaAgent(BaseAgent):
                  hi_agent_cls=HiAgent,
                  lo_agent_cls=BaseAgent,
                  models_dir=None,
-                 c=40,
-                 tau=0.9,
+                 c=50,
+                 tau=0.99,
                  hi_action_space=None):
         # note, this will not work if initialised with
         # default parameters!
@@ -64,22 +64,22 @@ class MetaAgent(BaseAgent):
                 state_space=state_space,
                 action_space=self.hi_action_space,
                 use_long_buffer=True,
-                exploration_magnitude=0.7,
-                exploration_decay = 0.9999,
+                exploration_magnitude=0.5,
+                exploration_decay = 0.999,
                 discount_factor=0.99,
-                n_units=[256, 128, 64],
-                weights_stdev=0.03,
+                n_units=[128, 128],
+                weights_stdev=0.0001,
                 )
 
             # low level agent's states will be (state, goal) concatenated
             self.lo_agent = lo_agent_cls.new_trainable_agent(
                 state_space=self.lo_state_space,
                 action_space=action_space,
-                exploration_magnitude=0.7,
-                exploration_decay = 0.99999,
-                discount_factor=0.95,
+                exploration_magnitude=0.5,
+                exploration_decay = 0.999999,
+                discount_factor=0.99,
                 n_units=[128, 64],
-                weights_stdev=0.0001,
+                weights_stdev=0.03,
                 )
         else:
             self.hi_agent = hi_agent_cls.load_pretrained_agent(filepath=models_dir + '/hi_agent',
@@ -120,13 +120,11 @@ class MetaAgent(BaseAgent):
 
         final_reward = np.linalg.norm(1 - normalized_differences) /np.sqrt(state.shape[1]) # ** 2 #removed the square. ask gui why
         # final_reward  = self.cosine_similarity(normalized_differences, goal)
-
         return final_reward
 
     def modify_exploration_magnitude(self, factor, mode='increment'):
         self.hi_agent.modify_exploration_magnitude(factor=factor, mode=mode)
         self.lo_agent.modify_exploration_magnitude(factor=factor, mode=mode)
-
 
     def act(self, state, explr_mode="no_exploration"):
 
@@ -162,7 +160,7 @@ class MetaAgent(BaseAgent):
         self.hi_rewards += reward
 
         # provide LL agent with intrinsic reward
-        self.lo_reward = self.intrinsic_reward(state=state, goal=self.goal, action=action, next_state=next_state)
+        self.lo_reward = self.intrinsic_reward(state=state, goal=self.goal, action=action, next_state=next_state) + reward
 
         # add polyak average of hi-level agent reward
         self.hi_rewards = self.tau * self.hi_rewards + (1-self.tau) * self.lo_reward
@@ -180,7 +178,7 @@ class MetaAgent(BaseAgent):
 
         # The lower-level policy will store the experience
         # (st, gt, at, rt, st+1, h(st, gt, st+1))
-        # for off-policy training.
+        # for off-policy training.  
         lo_loss, _ = self.lo_agent.train(
             np.concatenate([state, old_goal], axis=1),
             action,
@@ -188,10 +186,7 @@ class MetaAgent(BaseAgent):
             np.concatenate([next_state, self.goal], axis=1),
             lo_done)
 
-        # is it time to train the HL agent?
-        hi_loss = None
-        if self.t % self.c == 0:
-            hi_loss, _ = self.hi_agent.train(
+        hi_loss, _ = self.hi_agent.train(
                 state=self.hi_state,
                 action=self.hi_action, #(-1, 1)
                 reward=self.hi_rewards,
@@ -201,7 +196,16 @@ class MetaAgent(BaseAgent):
                 lo_state_seq=self.lo_state_seq,
                 lo_action_seq=self.lo_action_seq,
                 lo_current_policy=self.lo_agent.act)
-
+        # is it time to train the HL agent?
+        if self.t % self.c == 0:
+            self.hi_agent.replay_buffer.add(
+                state_before=np.squeeze(state, axis=0), 
+                action=np.squeeze(action, axis=0), 
+                state_after=np.squeeze(next_state, axis=0), 
+                reward=reward, 
+                done_flag=done, 
+                lo_state_seq=lo_state_seq, 
+                lo_action_seq=lo_action_seq))
             # reset this
             self.hi_rewards = 0
 
@@ -246,7 +250,7 @@ class MetaAgent(BaseAgent):
 
         candidate_hi_actions = np.random.normal(
             loc=orig_hi_action,
-            scale=(1/3), #since we're in (1/1) space...
+            scale=stdev_goal, #since we're in (1/1) space...
             size=(n_candidate_hi_acts, *orig_hi_action.shape))
 
         # also include the original hi_action gt
