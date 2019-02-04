@@ -133,8 +133,6 @@ class DDPGAgent(HiAgent):
                     action = action - np.sign(action) * noise # Put them together
             else:
                 raise Exception('Invalid exploration method')
-            if self.explr_magnitude > self.explr_magnitude_min:
-                self.explr_magnitude *= self.explr_decay
         
         action = np.clip(action, a_min=-1, a_max=1)
 
@@ -150,27 +148,36 @@ class DDPGAgent(HiAgent):
             pass
 
     def train(self,
-              state,
-              action,
-              reward: float,
-              next_state,
-              done: bool,
+              state=None,
+              action=None,
+              reward: float=None,
+              next_state=None,
+              done: bool=None,
               relabeller=None,
               lo_state_seq=None,
               lo_action_seq=None,
-              lo_current_policy=None):
+              lo_current_policy=None,
+              add_transition_to_buffer=True):
         assert self.replay_buffer is not None, 'It seems like you are trying to train a pretrained model. Not cool, dude.'
-        # add a transition to the buffer
-        self.replay_buffer.add(
-            state_before=np.squeeze(state, axis=0), 
-            action=np.squeeze(action, axis=0), 
-            state_after=np.squeeze(next_state, axis=0), 
-            reward=reward, 
-            done_flag=done, 
-            lo_state_seq=lo_state_seq, 
-            lo_action_seq=lo_action_seq)
-        # ...
         
+        if add_transition_to_buffer:
+            self.replay_buffer.add(
+                state_before=np.squeeze(state, axis=0), 
+                action=np.squeeze(action, axis=0), 
+                state_after=np.squeeze(next_state, axis=0), 
+                reward=reward, 
+                done_flag=done, 
+                lo_state_seq=lo_state_seq, 
+                lo_action_seq=lo_action_seq)
+        
+        # reduce the exploration magnitude
+        if self.explr_magnitude > self.explr_magnitude_min:
+            self.explr_magnitude *= self.explr_decay
+
+        # Check if the buffer has already some data, otherwise return
+        if len(self.replay_buffer) < 1:
+            print('No data in the buffer. Training is not possible.')
+            return  None, None
 
         #sample a batch
         batch = self.replay_buffer.sample_batch()

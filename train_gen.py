@@ -90,27 +90,14 @@ def test_agent(n_episodes: int=10, render: bool=True):
     
     return np.array(all_scores)
 
-def isSolved(n_episodes=100, min_score=1800):
-    all_scores = test_agent(n_episodes=n_episodes, render=False)
-    average_score = np.mean(all_scores)
-    results = all_scores > min_score
-    solved = np.all(results)
-    failures = n_episodes - np.sum(results)
-    neg = 'not ' if not solved else ' '
-    print (f'\nProblem{neg}solved.')
-    print (f'Mean score over {n_episodes} episodes: {average_score}')
-    print (f'Failed episodes: {failures}')
-    return solved
 
-
-def train_agent(n_steps: int=500000, render: bool=True, early_stop=True):
+def train_agent(n_steps: int=500000, render: bool=False):
     env = ContinuousCartPoleEnv() if not COMPLEXENV else BipedalWalker()
     env.seed(np.random.randint(9999))
     tensorboard_path = os.path.join(".", "tensorboard")
     ensure_path(tensorboard_path)
     tensorboard_path = os.path.join(tensorboard_path, NAME)
     ensure_path(tensorboard_path)
-    solved_score = 1800 if not COMPLEXENV else 42 # TODO: more suitable value than 42
 
     # we need to create the Tensorboard network BEFORE the agent, otherwise it gets angry
     # this could be done better, but oh well.
@@ -144,13 +131,14 @@ def train_agent(n_steps: int=500000, render: bool=True, early_stop=True):
             lo_agent_cls=DDPGAgent,
             hi_action_space=hi_action_space,
             c=10,
-            #c=n_steps,
             )
 
-    total_steps, ep = 0, 0
+    total_steps, ep, best_score_so_far = 0, 0, -2
 
     while total_steps < n_steps:
-        steps, hi_steps, score, lo_score, done, lo_loss_sum, hi_loss_sum = 0, 0, 0, 0, False, 0, 0
+        steps, hi_steps, lo_loss_sum, hi_loss_sum, done = 0, 0, 0, 0, False
+        lo_score, score = 0, 0
+        
         state = env.reset()
         if HIERARCHY:
             agent.reset_clock()
@@ -239,7 +227,8 @@ def train_agent(n_steps: int=500000, render: bool=True, early_stop=True):
                     "expl": agent.explr_magnitude,
                     })
         else:
-            print(f'Episode {ep:4d}, score: {score:.1f}, lo_score: {lo_score:.2f} '
+            print(f'Episode {ep:4d}, score: {score:.1f}, lo_score: {lo_score:.2f}, '
+                + f'record: {best_score_so_far:.1f}, '
                 + f'steps: {steps:4d}, '
                 + f'lo_loss: {lo_loss_sum:.3f}, '
                 + f'hi_loss: {hi_loss_sum:.3f}, '
@@ -261,15 +250,25 @@ def train_agent(n_steps: int=500000, render: bool=True, early_stop=True):
         if ep % 100 == 0:
             agent.save_model(saved_models_dir)
 
-        #Early stop test
-        if early_stop and score > 0.8 * solved_score:
-            print(f'\n\n The agent reached a score of {score} while training. It is now eligible for an early stop test.')
+        #save model, if it is the best so far
+        if score > 0.9 * best_score_so_far:
+            print(f'\n\n The agent reached a score of {score} while training. Can it beat the record?')
             print('Initiating tests...')
             agent.save_model(saved_models_dir)
-            if isSolved(min_score=solved_score):
+            all_scores = test_agent(n_episodes=100, render=False)
+            average_score = np.mean(all_scores)
+            if average_score > best_score_so_far:
+                print (f'Current model broke the record. Mean score over 100 episodes: {average_score}')
+                agent.save_model(best_model_dir)
+                best_score_so_far = average_score
+            results = all_scores > 1800
+            if np.all(results):
+                print ('\nAll tests scored more than 1800. Problem solved.')
                 return
-
-    agent.save_model(saved_models_dir)
+            else:
+                failures = 100 - np.sum(results)
+                print ('\nNot all tests scored more than 1800. Problem not solved.')
+                print (f'Failed episodes: {failures}')
 
 
 if __name__ == "__main__":
@@ -282,7 +281,7 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--steps",
-        default=1000000,
+        default=2000000,
         type=int,
         help="number of steps to train for"
     )
@@ -308,9 +307,11 @@ if __name__ == "__main__":
     ensure_path(saved_models_dir)
     saved_models_dir = os.path.join(saved_models_dir, NAME)
     ensure_path(saved_models_dir)
+    best_model_dir = os.path.join(saved_models_dir, 'best_model')
+    ensure_path(best_model_dir)
 
     # Fixing seed for comparing features
-    np.random.seed(0)
+    np.random.seed(1)
 
     train_agent(n_steps=args.steps, render=RENDER)
     #test_agent()

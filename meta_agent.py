@@ -63,10 +63,9 @@ class MetaAgent(BaseAgent):
                 state_space=state_space,
                 action_space=self.hi_action_space,
                 use_long_buffer=True,
-                exploration_mode="rough_explore",
-                exploration_magnitude=0.7, 
-                exploration_decay = 0.99995,
-                exploration_magnitude_min = 0.001,
+                exploration_mode="gaussian",
+                exploration_magnitude=2.0, 
+                exploration_decay = 0.9999995,
                 discount_factor=0.99,
                 n_units=[256, 128, 64],
                 weights_stdev=0.001,
@@ -80,8 +79,9 @@ class MetaAgent(BaseAgent):
                 exploration_mode="gaussian",
                 exploration_magnitude=2.0,
                 exploration_decay = 0.9999995,
+                exploration_magnitude_min = 0.000,
                 discount_factor=0.95,
-                n_units=[128, 64],
+                n_units=[256, 128, 64],
                 weights_stdev=0.001,
                 )
         else:
@@ -198,8 +198,8 @@ class MetaAgent(BaseAgent):
             next_state=np.concatenate([next_state, next_goal], axis=1),
             done=lo_done)
 
-        # is it time to train the HL agent?
-        hi_loss = None
+        # HL agent training.
+        # Is it time to add a transition to its buffer?
         if self.t % self.c == 0:
             hi_loss, _ = self.hi_agent.train(
                 state=self.hi_state,
@@ -211,9 +211,10 @@ class MetaAgent(BaseAgent):
                 lo_state_seq=self.lo_state_seq,
                 lo_action_seq=self.lo_action_seq,
                 lo_current_policy=self.lo_agent.act)
-
             # reset this
             self.hi_rewards = 0
+        else: # Just train without adding a new transition to the buffer
+            hi_loss, _ = self.hi_agent.train(add_transition_to_buffer=False)
 
         return lo_loss, hi_loss
 
