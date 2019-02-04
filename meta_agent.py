@@ -16,7 +16,7 @@ class MetaAgent(BaseAgent):
                  hi_agent_cls=HiAgent,
                  lo_agent_cls=BaseAgent,
                  models_dir=None,
-                 c=40,
+                 c=10,
                  hi_action_space=None):
         # note, this will not work if initialised with
         # default parameters!
@@ -65,7 +65,7 @@ class MetaAgent(BaseAgent):
                 use_long_buffer=True,
                 exploration_mode="gaussian",
                 exploration_magnitude=2.0, 
-                exploration_decay = 0.9999995,
+                exploration_decay = 0.999999,
                 discount_factor=0.99,
                 n_units=[256, 128, 64],
                 weights_stdev=0.001,
@@ -77,8 +77,8 @@ class MetaAgent(BaseAgent):
                 state_space=self.lo_state_space, 
                 action_space=action_space, 
                 exploration_mode="gaussian",
-                exploration_magnitude=2.0,
-                exploration_decay = 0.9999995,
+                exploration_magnitude=0.5,
+                exploration_decay = 0.999999,
                 exploration_magnitude_min = 0.000,
                 discount_factor=0.95,
                 n_units=[256, 128, 64],

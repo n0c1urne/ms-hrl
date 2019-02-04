@@ -49,7 +49,7 @@ def test_agent(n_episodes: int=10, render: bool=True):
             hi_agent_cls=DummyAgent,
             lo_agent_cls=DDPGAgent,
             hi_action_space=hi_action_space,
-            )
+            c=10)
 
     all_scores = []
     for ep in range(n_episodes):
