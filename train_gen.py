@@ -133,7 +133,7 @@ def train_agent(n_steps: int=500000, render: bool=False):
             c=10,
             )
 
-    total_steps, ep, best_score_so_far = 0, 0, -2
+    total_steps, ep, best_score_so_far = 0, 0, 10
 
     while total_steps < n_steps:
         steps, hi_steps, lo_loss_sum, hi_loss_sum, done = 0, 0, 0, 0, False
@@ -247,9 +247,6 @@ def train_agent(n_steps: int=500000, render: bool=False):
                     "lo_expl": agent.lo_agent.explr_magnitude,
                     })
         
-        if ep % 100 == 0:
-            agent.save_model(saved_models_dir)
-
         #save model, if it is the best so far
         if score > 0.9 * best_score_so_far:
             print(f'\n\n The agent reached a score of {score} while training. Can it beat the record?')
