@@ -67,7 +67,7 @@ class MetaAgent(BaseAgent):
                 exploration_magnitude=2.0, 
                 exploration_decay = 0.999999,
                 discount_factor=0.99,
-                n_units=[256, 128, 64],
+                n_units=[128, 128, 64],
                 weights_stdev=0.001,
                 c=c
                 )
@@ -77,11 +77,11 @@ class MetaAgent(BaseAgent):
                 state_space=self.lo_state_space, 
                 action_space=action_space, 
                 exploration_mode="gaussian",
-                exploration_magnitude=0.5,
+                exploration_magnitude=1.0,
                 exploration_decay = 0.9999995,
                 exploration_magnitude_min = 0.0,
                 discount_factor=0.95,
-                n_units=[256, 128, 64],
+                n_units=[128, 128, 64],
                 weights_stdev=0.001,
                 )
         else:
