@@ -214,7 +214,12 @@ class MetaAgent(BaseAgent):
             # reset this
             self.hi_rewards = 0
         else: # Just train without adding a new transition to the buffer
-            hi_loss, _ = self.hi_agent.train(add_transition_to_buffer=False)
+            hi_loss, _ = self.hi_agent.train(
+                relabeller=self.relabel_hi_action,
+                lo_state_seq=self.lo_state_seq,
+                lo_action_seq=self.lo_action_seq,
+                lo_current_policy=self.lo_agent.act,
+                add_transition_to_buffer=False)
 
         return lo_loss, hi_loss
 
